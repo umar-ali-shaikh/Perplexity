@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #0b0c0d;
+  --color-ink-soft: #16181a;
+  --color-paper: #f4f1ea;
+  --color-graphite: #8a8d90;
+  --color-hairline: #2a2c2e;
+  --color-evidence: #b9ff6b;
+  --color-alert: #d9704f;
+
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces", ui-serif, Georgia, serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+@keyframes research-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.research-reveal {
+  animation: research-reveal 0.5s ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .research-reveal {
+    animation: none;
+  }
+}
