@@ -8,7 +8,7 @@ const app = express();
 
 // Middleware
 app.use(cors({
-    origin: /^http:\/\/localhost:517\d$/,
+    origin: process.env.FRONTEND_URL,
     credentials: true,
 }));
 app.use(express.json());
@@ -22,6 +22,6 @@ app.get("/", (req, res) => {
 })
 
 app.use("/api/auth", authRouter);
-app.use("/api/chat", chatRouter);
+app.use("/api/chats", chatRouter);
 
 export default app;

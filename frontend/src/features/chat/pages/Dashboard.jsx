@@ -1,23 +1,48 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import { useChat } from "../hooks/useChat";
+import { useAuth } from "../../auth/hooks/useAuth";
+import { MessageThread } from "../components/MessageThread";
+import { PricingModal } from "../components/PricingModal";
+import { FREE_MESSAGE_LIMIT } from "../constants";
 
 const Dashboard = () => {
   const chat = useChat();
+  const { handleLogout } = useAuth();
   const { user } = useSelector((state) => state.auth);
 
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState("All");
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [showPricing, setShowPricing] = useState(false);
+  const profileMenuRef = useRef(null);
+
+  const messagesUsed = user?.messageCount ?? 0;
+  const limitReached = messagesUsed >= FREE_MESSAGE_LIMIT;
 
   useEffect(() => {
     chat.initializedSocketConnection();
     chat.getChats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!profileMenuOpen) return;
+
+    const handleClickOutside = (e) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target)) {
+        setProfileMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [profileMenuOpen]);
 
   const handleSubmit = () => {
     const trimmed = query.trim();
-    if (!trimmed) return;
+    if (!trimmed || limitReached) return;
 
     chat.sendMessage(trimmed);
     setQuery("");
@@ -94,12 +119,11 @@ const Dashboard = () => {
 
           {/* Right */}
           <div className="flex items-center gap-2">
-            <button className="hidden rounded-lg px-3 py-2 text-sm text-neutral-400 transition hover:bg-white/[0.06] hover:text-white sm:block">
+            <button
+              onClick={() => setShowPricing(true)}
+              className="hidden rounded-lg px-3 py-2 text-sm text-neutral-400 transition hover:bg-white/[0.06] hover:text-white sm:block"
+            >
               Upgrade
-            </button>
-
-            <button className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-blue-500 text-sm font-semibold">
-              {user?.name?.charAt(0)?.toUpperCase() || "U"}
             </button>
           </div>
         </div>
@@ -145,19 +169,35 @@ const Dashboard = () => {
             )}
 
             {chat.chats.map((c) => (
-              <button
+              <div
                 key={c._id}
-                onClick={() => chat.getMessages(c._id)}
-                className={`group flex w-full items-start gap-2 rounded-lg px-2 py-2 text-left transition hover:bg-white/[0.05] ${
+                className={`group relative flex w-full items-start gap-2 rounded-lg pl-2 pr-8 py-2 transition hover:bg-white/[0.05] ${
                   chat.currentChatId === c._id ? "bg-white/[0.06]" : ""
                 }`}
               >
-                <span className="mt-0.5 text-xs text-neutral-600">◦</span>
+                <button
+                  onClick={() => chat.getMessages(c._id)}
+                  className="flex flex-1 items-start gap-2 text-left"
+                >
+                  <span className="mt-0.5 text-xs text-neutral-600">◦</span>
 
-                <span className="line-clamp-2 text-[13px] leading-5 text-neutral-400 group-hover:text-neutral-200">
-                  {c.title}
-                </span>
-              </button>
+                  <span className="line-clamp-2 text-[13px] leading-5 text-neutral-400 group-hover:text-neutral-200">
+                    {c.title}
+                  </span>
+                </button>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    chat.deleteChat(c._id);
+                  }}
+                  title="Delete thread"
+                  aria-label={`Delete thread: ${c.title}`}
+                  className="absolute right-1 top-1.5 hidden h-6 w-6 items-center justify-center rounded-md text-neutral-500 transition hover:bg-white/[0.08] hover:text-red-400 group-hover:flex"
+                >
+                  ✕
+                </button>
+              </div>
             ))}
           </div>
 
@@ -172,6 +212,54 @@ const Dashboard = () => {
               <span>?</span>
               Help
             </button>
+
+            <div ref={profileMenuRef} className="relative mt-1">
+              {profileMenuOpen && (
+                <div className="absolute bottom-full left-0 mb-1 w-full overflow-hidden rounded-lg border border-white/[0.08] bg-[#232323] py-1 shadow-xl">
+                  <button
+                    onClick={() => {
+                      setProfileMenuOpen(false);
+                      handleLogout();
+                    }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-neutral-300 transition hover:bg-white/[0.06] hover:text-white"
+                  >
+                    <span>⇄</span>
+                    Switch account
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setProfileMenuOpen(false);
+                      handleLogout();
+                    }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-neutral-300 transition hover:bg-white/[0.06] hover:text-white"
+                  >
+                    <span>⏻</span>
+                    Log out
+                  </button>
+                </div>
+              )}
+
+              <button
+                onClick={() => setProfileMenuOpen((open) => !open)}
+                aria-haspopup="menu"
+                aria-expanded={profileMenuOpen}
+                className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-white/[0.05]"
+              >
+                <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-blue-500 text-sm font-semibold text-white">
+                  {user?.username?.charAt(0)?.toUpperCase() || "U"}
+                </span>
+
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm text-neutral-200">
+                    {user?.username || "Account"}
+                  </span>
+                  <span className="block truncate text-xs text-neutral-600">
+                    {user?.email}
+                  </span>
+                </span>
+              </button>
+            </div>
           </div>
         </div>
       </aside>
@@ -183,19 +271,49 @@ const Dashboard = () => {
         }`}
       >
         <div className="mx-auto w-full max-w-[1100px] px-5 pb-20 pt-16 md:px-10 lg:pt-24">
-          {/* Greeting */}
-          <div className="mb-10">
-            <p className="mb-2 text-sm text-neutral-500">Good morning</p>
+          {chat.messages.length > 0 ? (
+            <MessageThread messages={chat.messages} isLoading={chat.isLoading} />
+          ) : (
+            <>
+              {/* Greeting */}
+              <div className="mb-10">
+                <p className="mb-2 text-sm text-neutral-500">Good morning</p>
 
-            <h1 className="text-3xl font-semibold tracking-tight text-white md:text-4xl">
-              What do you want to know?
-            </h1>
+                <h1 className="text-3xl font-semibold tracking-tight text-white md:text-4xl">
+                  What do you want to know?
+                </h1>
 
-            <p className="mt-3 max-w-xl text-sm leading-6 text-neutral-500">
-              Ask anything. Get a clear answer backed by information from across
-              the web.
+                <p className="mt-3 max-w-xl text-sm leading-6 text-neutral-500">
+                  Ask anything. Get a clear answer backed by information from across
+                  the web.
+                </p>
+              </div>
+            </>
+          )}
+
+          {chat.error && (
+            <p
+              role="alert"
+              className="mb-4 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-2.5 text-sm text-red-400"
+            >
+              {chat.error}
             </p>
-          </div>
+          )}
+
+          {limitReached && (
+            <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-white/[0.1] bg-white/[0.04] px-4 py-3">
+              <p className="text-sm text-neutral-300">
+                You've used all {FREE_MESSAGE_LIMIT} free messages. Upgrade to
+                keep chatting.
+              </p>
+              <button
+                onClick={() => setShowPricing(true)}
+                className="flex-shrink-0 rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-black transition hover:bg-neutral-200"
+              >
+                Upgrade
+              </button>
+            </div>
+          )}
 
           {/* ================= SEARCH BOX ================= */}
           <div className="group relative mb-12">
@@ -211,9 +329,12 @@ const Dashboard = () => {
                     handleSubmit();
                   }
                 }}
-                placeholder="Ask anything..."
+                placeholder={
+                  limitReached ? "Upgrade to keep chatting…" : "Ask anything..."
+                }
                 rows={3}
-                className="w-full resize-none bg-transparent px-5 pt-5 text-[15px] leading-6 text-white outline-none placeholder:text-neutral-600"
+                disabled={limitReached}
+                className="w-full resize-none bg-transparent px-5 pt-5 text-[15px] leading-6 text-white outline-none placeholder:text-neutral-600 disabled:cursor-not-allowed disabled:opacity-50"
               />
 
               <div className="flex items-center justify-between px-4 pb-3">
@@ -238,7 +359,7 @@ const Dashboard = () => {
                 {/* Submit */}
                 <button
                   onClick={handleSubmit}
-                  disabled={!query.trim() || chat.isLoading}
+                  disabled={!query.trim() || chat.isLoading || limitReached}
                   className={`flex h-9 w-9 items-center justify-center rounded-xl transition ${
                     query.trim()
                       ? "bg-white text-black hover:bg-neutral-200"
@@ -251,67 +372,77 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* ================= QUICK ACTIONS ================= */}
-          <div className="mb-12 grid grid-cols-2 gap-3 md:grid-cols-4">
-            <QuickAction
-              icon="✦"
-              title="Deep Research"
-              description="Explore a topic deeply"
-            />
+          {chat.messages.length === 0 && (
+            <>
+              {/* ================= QUICK ACTIONS ================= */}
+              <div className="mb-12 grid grid-cols-2 gap-3 md:grid-cols-4">
+                <QuickAction
+                  icon="✦"
+                  title="Deep Research"
+                  description="Explore a topic deeply"
+                />
 
-            <QuickAction icon="⌘" title="Write" description="Create anything" />
+                <QuickAction icon="⌘" title="Write" description="Create anything" />
 
-            <QuickAction
-              icon="⌕"
-              title="Search"
-              description="Find information"
-            />
+                <QuickAction
+                  icon="⌕"
+                  title="Search"
+                  description="Find information"
+                />
 
-            <QuickAction
-              icon="▤"
-              title="Analyze"
-              description="Understand data"
-            />
-          </div>
-
-          {/* ================= DISCOVER ================= */}
-          <div>
-            <div className="mb-5 flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-medium">Explore</h2>
-                <p className="mt-1 text-xs text-neutral-600">
-                  Discover interesting topics
-                </p>
+                <QuickAction
+                  icon="▤"
+                  title="Analyze"
+                  description="Understand data"
+                />
               </div>
 
-              <button className="text-xs text-neutral-500 transition hover:text-white">
-                View all →
-              </button>
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-3">
-              {trendingTopics.map((topic) => (
-                <button
-                  key={topic.title}
-                  className="group rounded-2xl border border-white/[0.07] bg-[#1e1e1e] p-5 text-left transition duration-200 hover:-translate-y-0.5 hover:border-white/[0.13] hover:bg-[#232323]"
-                >
-                  <div className="mb-8 flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.06] text-sm text-neutral-300 transition group-hover:bg-white/[0.1]">
-                    {topic.icon}
+              {/* ================= DISCOVER ================= */}
+              <div>
+                <div className="mb-5 flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-medium">Explore</h2>
+                    <p className="mt-1 text-xs text-neutral-600">
+                      Discover interesting topics
+                    </p>
                   </div>
 
-                  <h3 className="mb-1 text-sm font-medium text-neutral-200">
-                    {topic.title}
-                  </h3>
+                  <button className="text-xs text-neutral-500 transition hover:text-white">
+                    View all →
+                  </button>
+                </div>
 
-                  <p className="text-xs leading-5 text-neutral-600">
-                    {topic.description}
-                  </p>
-                </button>
-              ))}
-            </div>
-          </div>
+                <div className="grid gap-3 md:grid-cols-3">
+                  {trendingTopics.map((topic) => (
+                    <button
+                      key={topic.title}
+                      className="group rounded-2xl border border-white/[0.07] bg-[#1e1e1e] p-5 text-left transition duration-200 hover:-translate-y-0.5 hover:border-white/[0.13] hover:bg-[#232323]"
+                    >
+                      <div className="mb-8 flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.06] text-sm text-neutral-300 transition group-hover:bg-white/[0.1]">
+                        {topic.icon}
+                      </div>
+
+                      <h3 className="mb-1 text-sm font-medium text-neutral-200">
+                        {topic.title}
+                      </h3>
+
+                      <p className="text-xs leading-5 text-neutral-600">
+                        {topic.description}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </section>
+
+      <PricingModal
+        open={showPricing}
+        onClose={() => setShowPricing(false)}
+        messagesUsed={messagesUsed}
+      />
     </main>
   );
 };

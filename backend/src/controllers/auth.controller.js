@@ -171,7 +171,8 @@ export async function login(req, res) {
             user: {
                 id: user._id,
                 username: user.username,
-                email: user.email
+                email: user.email,
+                messageCount: user.messageCount
             }
         });
 
@@ -192,23 +193,51 @@ export async function login(req, res) {
  * @access Private
  */
 export async function getMe(req, res) {
-    const userId = req.user.userId;
+    try {
+        const userId = req.user.userId;
 
-    const user = await User.findById(userId).select("-password");
+        const user = await User.findById(userId).select("-password");
 
-    if (!user) {
-        return res.status(404).json({
-            message: "User not found",
-            success: false,
-            err: "User not found"
+        if (!user) {
+            return res.status(404).json({
+                message: "User not found",
+                success: false,
+                err: "User not found"
+            })
+        }
+
+        res.status(200).json({
+            message: "User details fetched successfully",
+            success: true,
+            user
         })
-    }
+    } catch (error) {
+        console.error("getMe error:", error);
 
-    res.status(200).json({
-        message: "User details fetched successfully",
-        success: true,
-        user
-    })
+        return res.status(500).json({
+            message: "Something went wrong while fetching user details",
+            success: false,
+            error: error.message
+        });
+    }
+}
+
+/**
+ * @route POST /api/auth/logout
+ * @desc Clear the auth cookie and end the session
+ * @access Private
+ */
+export async function logout(req, res) {
+    res.clearCookie("token", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+    });
+
+    return res.status(200).json({
+        message: "Logged out successfully",
+        success: true
+    });
 }
 
 /**
