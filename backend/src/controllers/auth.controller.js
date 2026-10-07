@@ -2,6 +2,19 @@ import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
 import { sendEmail } from "../services/mail.service.js";
 
+const isProduction = process.env.NODE_ENV === "production";
+
+// Frontend and backend are deployed on separate domains in production
+// (e.g. Vercel + Render), which makes every API call cross-site — that
+// requires SameSite=None (+ Secure, which browsers mandate alongside it).
+// Locally both run on localhost, which browsers treat as same-site, so
+// Lax (and no Secure, since there's no HTTPS) is what works there.
+const AUTH_COOKIE_OPTIONS = {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? "none" : "lax",
+};
+
 /**
  * @route POST /api/auth/register
  * @desc Register a new user and send email verification link
@@ -166,9 +179,7 @@ export async function login(req, res) {
 
         // Set JWT in HTTP-only cookie
         res.cookie("token", token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "lax",
+            ...AUTH_COOKIE_OPTIONS,
             maxAge: 7 * 24 * 60 * 60 * 1000
         });
 
@@ -211,9 +222,7 @@ export async function googleCallback(req, res) {
         );
 
         res.cookie("token", token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "lax",
+            ...AUTH_COOKIE_OPTIONS,
             maxAge: 7 * 24 * 60 * 60 * 1000
         });
 
@@ -265,11 +274,7 @@ export async function getMe(req, res) {
  * @access Private
  */
 export async function logout(req, res) {
-    res.clearCookie("token", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-    });
+    res.clearCookie("token", AUTH_COOKIE_OPTIONS);
 
     return res.status(200).json({
         message: "Logged out successfully",
