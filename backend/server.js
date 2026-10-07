@@ -1,4 +1,6 @@
-import "dotenv/config";
+// Must be the first import: it loads the repo-root .env as a side effect,
+// before any other module (which may read process.env at import time) evaluates.
+import "./src/config/env.js";
 import app from "./src/app.js";
 import connectDB from "./src/config/db.js";
 import http from "http";

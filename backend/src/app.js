@@ -4,6 +4,7 @@ import cookieParser from "cookie-parser";
 import authRouter from "./routes/auth.routes.js";
 import morgan from "morgan";
 import chatRouter from "./routes/chat.routes.js";
+import passport from "./config/passport.js";
 const app = express();
 
 // Middleware
@@ -15,6 +16,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }))
 app.use(cookieParser());
 app.use(morgan("dev"));
+app.use(passport.initialize());
 
 // Health check
 app.get("/", (req, res) => {

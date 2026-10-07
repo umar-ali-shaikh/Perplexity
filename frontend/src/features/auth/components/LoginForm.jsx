@@ -138,6 +138,26 @@ export function LoginForm({
         </p>
       </form>
 
+      <div className="research-reveal mt-6 flex items-center gap-4" style={{ animationDelay: "245ms" }}>
+        <span className="h-px flex-1 bg-hairline" aria-hidden="true" />
+        <span className={labelClasses}>Or</span>
+        <span className="h-px flex-1 bg-hairline" aria-hidden="true" />
+      </div>
+
+      <a
+        href={`${import.meta.env.VITE_BACKEND_URL}/api/auth/google`}
+        className="research-reveal mt-6 flex min-h-11 items-center justify-center gap-3 border border-hairline py-3 font-mono text-sm uppercase tracking-widest text-paper transition-colors hover:border-paper focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-evidence"
+        style={{ animationDelay: "280ms" }}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path
+            fill="currentColor"
+            d="M21.35 11.1h-9.17v2.98h5.4c-.23 1.47-1.68 4.3-5.4 4.3-3.25 0-5.9-2.7-5.9-6.03s2.65-6.03 5.9-6.03c1.85 0 3.09.79 3.8 1.47l2.59-2.5C16.95 3.6 14.7 2.6 12.18 2.6 7.1 2.6 3 6.68 3 11.75s4.1 9.15 9.18 9.15c5.3 0 8.8-3.72 8.8-8.96 0-.6-.07-1.06-.15-1.56z"
+          />
+        </svg>
+        Continue with Google
+      </a>
+
       <p
         className="research-reveal mt-6 text-sm text-graphite"
         style={{ animationDelay: "280ms" }}

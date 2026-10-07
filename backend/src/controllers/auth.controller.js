@@ -140,6 +140,14 @@ export async function login(req, res) {
             });
         }
 
+        // Accounts created via Google sign-in have no password set
+        if (!user.password) {
+            return res.status(400).json({
+                message: "This account uses Google sign-in. Please continue with Google instead.",
+                success: false
+            });
+        }
+
         // Compare entered password with hashed password
         const isPasswordCorrect = await user.comparePassword(password);
 
@@ -184,6 +192,35 @@ export async function login(req, res) {
             success: false,
             error: error.message
         });
+    }
+}
+
+/**
+ * @route GET /api/auth/google/callback
+ * @desc Complete Google OAuth login and issue the session cookie
+ * @access Public (runs after passport's "google" strategy populates req.user)
+ */
+export async function googleCallback(req, res) {
+    try {
+        const user = req.user;
+
+        const token = jwt.sign(
+            { userId: user._id },
+            process.env.JWT_SECRET,
+            { expiresIn: "7d" }
+        );
+
+        res.cookie("token", token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            maxAge: 7 * 24 * 60 * 60 * 1000
+        });
+
+        return res.redirect(process.env.FRONTEND_URL);
+    } catch (error) {
+        console.error("Google callback error:", error);
+        return res.redirect(`${process.env.FRONTEND_URL}/login?error=google_auth_failed`);
     }
 }
 

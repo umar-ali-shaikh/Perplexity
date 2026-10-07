@@ -22,58 +22,69 @@ export async function sendMessage(req, res) {
             });
         }
 
-        let chat = null;
+        try {
+            let chat = null;
 
-        if (chatId) {
-            chat = await Chat.findOne({ _id: chatId, user: req.user.userId });
+            if (chatId) {
+                chat = await Chat.findOne({ _id: chatId, user: req.user.userId });
 
-            if (!chat) {
-                return res.status(404).json({
-                    message: "Chat not found"
+                if (!chat) {
+                    throw Object.assign(new Error("Chat not found"), { statusCode: 404 });
+                }
+            } else {
+                const title = await generateChatTitle(messageText);
+
+                chat = await Chat.create({
+                    user: req.user.userId,
+                    title
                 });
             }
-        } else {
-            const title = await generateChatTitle(messageText);
 
-            chat = await Chat.create({
-                user: req.user.userId,
-                title
+            const userMessage = await Message.create({
+                chat: chat._id,
+                content: messageText,
+                role: "user"
             });
+
+            const history = await Message.find({ chat: chat._id }).sort({ createdAt: 1 });
+
+            const aiResponseText = await generateResponse(
+                history.map((msg) => ({ role: msg.role, content: msg.content }))
+            );
+
+            const aiMessage = await Message.create({
+                chat: chat._id,
+                content: aiResponseText,
+                role: "ai"
+            });
+
+            chat.updatedAt = new Date();
+            await chat.save();
+
+            return res.status(201).json({
+                chat,
+                userMessage,
+                aiMessage,
+                messageCount: updatedUser.messageCount
+            });
+        } catch (error) {
+            // Something failed after the message quota was already spent —
+            // give it back so the user isn't charged for a message that never went through.
+            await User.updateOne(
+                { _id: req.user.userId },
+                { $inc: { messageCount: -1 } }
+            );
+
+            throw error;
         }
-
-        const userMessage = await Message.create({
-            chat: chat._id,
-            content: messageText,
-            role: "user"
-        });
-
-        const history = await Message.find({ chat: chat._id }).sort({ createdAt: 1 });
-
-        const aiResponseText = await generateResponse(
-            history.map((msg) => ({ role: msg.role, content: msg.content }))
-        );
-
-        const aiMessage = await Message.create({
-            chat: chat._id,
-            content: aiResponseText,
-            role: "ai"
-        });
-
-        chat.updatedAt = new Date();
-        await chat.save();
-
-        res.status(201).json({
-            chat,
-            userMessage,
-            aiMessage,
-            messageCount: updatedUser.messageCount
-        });
     } catch (error) {
         console.error("sendMessage error:", error);
 
-        res.status(500).json({
-            message: "Something went wrong while sending the message",
-            error: error.message
+        const statusCode = error.statusCode || 500;
+
+        res.status(statusCode).json({
+            message: statusCode === 404 ? error.message : "Something went wrong while sending the message",
+            ...(statusCode === 500 && { error: error.message })
         });
     }
 }
